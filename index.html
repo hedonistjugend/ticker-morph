@@ -1,0 +1,333 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Ticker Morph — TSLA</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400..700&display=swap" rel="stylesheet">
+<style>
+  :root{--green:#22c495;--red:#f03e50;--font:"Inter",-apple-system,BlinkMacSystemFont,"SF Pro Text","Segoe UI",system-ui,Roboto,Helvetica,Arial,sans-serif}
+  *{box-sizing:border-box}
+  html,body{margin:0;height:100%;background:#000;overflow:hidden}
+  body{font-family:var(--font);color:#fff;-webkit-font-smoothing:antialiased;-webkit-tap-highlight-color:transparent}
+  #stage{position:absolute;left:50%;top:50%;width:0;height:0;transform-origin:0 0}
+  #card{position:absolute;overflow:hidden;border-radius:26px;
+    background:radial-gradient(130% 130% at 0% 0%,#262626 0%,#141414 45%,#060606 80%,#030303 100%);
+    box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.13)}
+  #card::after{content:"";position:absolute;inset:0;border-radius:inherit;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.12);pointer-events:none}
+  canvas#chart{position:absolute;left:0;top:0}
+  .t{position:absolute;left:0;top:0;white-space:nowrap;line-height:1;transform-origin:0 0;will-change:transform}
+  #name{font-size:30px;font-weight:500;color:#fff;letter-spacing:-.01em}
+  #sym{font-size:24px;font-weight:400;color:#acacac}
+  #sym .x{display:inline-block}
+  #price{font-size:41px;color:#fff;font-feature-settings:"tnum" 1;letter-spacing:-.01em}
+  #price .ch{display:inline-block;position:relative}
+  #price .slot{display:inline-block;position:relative;height:1em;vertical-align:top}
+  #price .reel{position:absolute;left:0;right:0;top:-.1em;height:1.2em;
+    -webkit-mask-image:linear-gradient(transparent 0%,#000 14%,#000 86%,transparent 100%);
+            mask-image:linear-gradient(transparent 0%,#000 14%,#000 86%,transparent 100%)}
+  #price .reel span{position:absolute;left:0;right:0;text-align:center;height:1em}
+  #pct{font-size:23px;font-weight:400;color:var(--green);font-feature-settings:"tnum" 1}
+  #chg{font-size:23px;font-weight:400;color:var(--green);font-feature-settings:"tnum" 1}
+  #chg2{font-size:23px;font-weight:400;color:var(--green)}
+  #date{font-size:22px;color:#6b6b6b;font-feature-settings:"tnum" 1}
+  #now{font-size:22px;color:#a9a9a9}
+  #now b{color:#fff;font-weight:500}
+  #logo{position:absolute;left:0;top:0;width:100px;height:100px;border-radius:50%;background:#e8364f;transform-origin:50% 50%}
+  #logo svg{position:absolute;left:24%;top:23%;width:52%;height:52%}
+  #expand{position:absolute;width:28px;height:28px}
+  #trade{position:absolute;height:42px;border-radius:21px;background:#161616;box-shadow:inset 0 0 0 1.5px rgba(255,255,255,.12);
+    display:flex;align-items:center;padding:0 8px 0 13px;font-size:22px;color:#a9a9a9;white-space:nowrap}
+  #trade b{color:#fff;font-weight:500;margin-left:.25em;margin-right:8px}
+  #trade .ic{width:30px;height:30px;border-radius:50%;margin-left:-8px;position:relative;box-shadow:0 0 0 2px #161616;transform-origin:50% 50%}
+  #trade .ic svg{position:absolute;inset:0;width:100%;height:100%}
+  /* speed controls */
+  #speed{position:fixed;left:50%;bottom:calc(22px + env(safe-area-inset-bottom));transform:translateX(-50%);display:flex;gap:4px;padding:4px;
+    background:#0e0e0e;border-radius:12px;box-shadow:inset 0 0 0 1px #222;user-select:none;z-index:5}
+  #speed button{font:500 14px/1 var(--font);color:#777;background:transparent;border:0;border-radius:8px;padding:10px 14px;cursor:pointer;font-feature-settings:"tnum" 1}
+  #speed button:hover{color:#bbb}
+  #speed button.on{color:#fff;background:#262626}
+  #clock{position:fixed;left:50%;bottom:calc(76px + env(safe-area-inset-bottom));transform:translateX(-50%);font:12px/1 var(--font);color:#3a3a3a;font-feature-settings:"tnum" 1}
+  body.compare #speed,body.compare #clock{display:none}
+</style>
+</head>
+<body>
+<div id="stage">
+  <div id="card">
+    <canvas id="chart"></canvas>
+    <div id="logo"><svg viewBox="0 0 24 24" fill="#fff"><path d="M12 5.362l2.475-3.026s4.245.09 8.471 2.054c-1.082 1.636-3.231 2.438-3.231 2.438-.146-1.439-1.154-1.79-4.354-1.79L12 24 8.619 5.034c-3.18 0-4.188.354-4.335 1.792 0 0-2.146-.795-3.229-2.43C5.28 2.431 9.525 2.34 9.525 2.34L12 5.362zm0-3.899c3.415-.03 7.326.528 11.328 2.28.535-.968.672-1.395.672-1.395C19.625.612 15.528.015 12 0 8.472.015 4.375.61 0 2.343c0 0 .195.525.672 1.396C4.674 1.989 8.585 1.435 12 1.46z"/></svg></div>
+    <div class="t" id="name">Tesla Inc</div>
+    <div class="t" id="sym"><span id="symA">TSLA</span><span class="x" id="symB">&nbsp;·&nbsp;NASDAQ</span></div>
+    <div class="t" id="price"></div>
+    <div class="t" id="chg">↑ $16.29 (</div>
+    <div class="t" id="pct">+4.20%</div>
+    <div class="t" id="chg2">)</div>
+    <div class="t" id="date">Oct 28, 2026 at 4:00 PM · 1D</div>
+    <div class="t" id="now">Now at <b>$403.80</b></div>
+    <svg id="expand" viewBox="0 0 28 28" fill="none" stroke="#fff" stroke-width="2.6" stroke-linecap="round" stroke-linejoin="round">
+      <path d="M16.5 11.5L24 4M17 4h7v7"/><path d="M11.5 16.5L4 24M4 17v7h7"/>
+    </svg>
+    <div id="trade">Trade<b>TSLA</b>
+      <div class="ic" style="background:#fff;margin-left:0;z-index:3"><svg viewBox="0 0 30 30"><g stroke-width="3.4" stroke-linecap="round"><path d="M15 7.5v15" stroke="#7a3ff0"/><path d="M8.5 11.2l13 7.6" stroke="#7a3ff0"/><path d="M8.5 18.8l13-7.6" stroke="#2ea7e8"/></g></svg></div>
+      <div class="ic" style="background:#fff;z-index:2"><svg viewBox="0 0 30 30"><path d="M9 17.5c3.6 2.6 9.2 2.4 12.8-1.6" stroke="#2f7bf5" stroke-width="3" fill="none" stroke-linecap="round"/></svg></div>
+      <div class="ic" style="background:#ef4a14;z-index:1"><svg viewBox="0 0 30 30" fill="none" stroke="#ffe9d6" stroke-width="2.1" stroke-linecap="round"><path d="M19.5 10.5c-1-1.3-2.6-2-4.5-2-2.6 0-4.3 1.4-4.3 3.2 0 4.5 9 2.4 9 6.8 0 2-1.9 3.2-4.6 3.2-2 0-3.7-.8-4.6-2.2"/><path d="M8.5 13.5h13M8.5 16.5h13"/></svg></div>
+    </div>
+  </div>
+</div>
+<div id="clock"></div>
+<div id="speed"><button data-s="1">1x</button><button data-s="0.25">0.25x</button><button data-s="0.1">0.1x</button></div>
+<script>
+(() => {
+'use strict';
+const Q = new URLSearchParams(location.search);
+const COMPARE = Q.has('compare');
+if (COMPARE) document.body.classList.add('compare');
+const FREEZE = Q.has('t') ? parseFloat(Q.get('t')) : null;
+let speed = parseFloat(Q.get('speed')) || 1;
+const LOOP = 4.6;
+
+// ---------- data (traced from the source video, 1080px frame coords) ----------
+const RAW = [[242,544],[262,582],[280,575],[286,586],[307,615],[319,624],[337,613],[376,699],[397,640],[451,643],[511,696],
+  [550,654],[568,650],[586,667],[607,652],[622,655],[643,635],[661,587],[700,568],[739,502],[742,501],[760,543],[781,528],[799,547],[837,489]];
+const YTOP = 489, YBOT = 699;
+const PTS = RAW.map(([x,y]) => [(x-242)/595, (y-YTOP)/(YBOT-YTOP)]);   // u 0..1, v 0..1 (0=high)
+const VHI = 404.22, VLO = 380.00, PREV = 387.93;
+const valOfV = v => VHI - v*(VHI-VLO);
+const V_BASE = (VHI-PREV)/(VHI-VLO);
+function vAt(u){
+  for (let i=1;i<PTS.length;i++){ if (u<=PTS[i][0]){ const a=PTS[i-1],b=PTS[i],k=(u-a[0])/(b[0]-a[0]||1); return a[1]+(b[1]-a[1])*k; } }
+  return PTS[PTS.length-1][1];
+}
+function priceAt(u){ const v = valOfV(vAt(u)); return u>=0.999 ? VHI : Math.round(v*100)/100; }
+function timeAt(u){
+  let m = Math.round(9.5*60 + u*390); if (u>=0.999) m = 16*60;
+  let h = Math.floor(m/60), mm = m%60, ap = h>=12?'PM':'AM'; h = h%12||12;
+  return `${h}:${String(mm).padStart(2,'0')} ${ap}`;
+}
+
+// ---------- easing ----------
+const clamp=(x,a=0,b=1)=>Math.min(b,Math.max(a,x));
+const lerp=(a,b,k)=>a+(b-a)*k;
+const easeIO2=x=>x<.5?2*x*x:1-Math.pow(-2*x+2,2)/2;
+const easeOut3=x=>1-Math.pow(1-x,3);
+const backOut=x=>{const c1=2.2,c3=c1+1;return 1+c3*Math.pow(x-1,3)+c1*Math.pow(x-1,2);};
+function spring(t, z, w){ if (t<=0) return 0; const wd=w*Math.sqrt(1-z*z); return 1-Math.exp(-z*w*t)*(Math.cos(wd*t)+(z*w/wd)*Math.sin(wd*t)); }
+const ramp=(t,a,b)=>clamp((t-a)/(b-a));
+
+// ---------- timeline (seconds, matches the 4.6s source loop) ----------
+const T_EXP=0.80, T_SCRUB0=1.70, T_SCRUB1=2.42, T_COL=2.90;
+const U_MIN = PTS[7][0];
+function morph(t){ // 0 compact .. 1 expanded (springy)
+  if (t < T_COL) return spring(t-T_EXP, .72, 12.9);
+  return 1 - spring(t-T_COL, .75, 12);
+}
+function squash(t){
+  if (t < T_COL){ const x=(t-T_EXP)/0.45; return x>0&&x<1 ? 0.047*Math.sin(Math.PI*x) : 0; }
+  const x=(t-T_COL)/0.48; return x>0&&x<1 ? 0.037*Math.sin(Math.PI*x) : 0;
+}
+function cursorU(t){
+  if (t < T_SCRUB0) return 1;
+  if (t < T_SCRUB1) return lerp(1, U_MIN, easeIO2(ramp(t,T_SCRUB0,T_SCRUB1)));
+  if (t < T_COL) return U_MIN;
+  return lerp(U_MIN, 1, 1-Math.pow(1-ramp(t,T_COL,T_COL+0.36),2.5));
+}
+function extrasA(t){ return t<T_COL ? ramp(t,0.92,1.08) : 1-ramp(t,T_COL+0.02,T_COL+0.13); }
+function cursorLineA(t){ return t<T_COL ? ramp(t,1.60,1.70) : 1-ramp(t,T_COL,T_COL+0.10); }
+function dotS(t){ if (t<1.50) return 0; if (t<T_COL+0.2) return backOut(ramp(t,1.50,1.64)); return 1-ramp(t,T_COL+0.2,T_COL+0.34); }
+function iconS(t,i){ if (t>=T_COL) return 1; const a=1.27+i*0.08; return t<a?0:backOut(ramp(t,a,a+0.2)); }
+
+// ---------- layout constants (design px = source px; card nominal 595 wide) ----------
+const CW = 595, CH_C = 105, CH_E = 515;
+const L = { // [compact, expanded] relative to card top-left
+  logoCx:[52.5,59], logoCy:[52,58.5], logoD:[62,62],
+  nameX:[95,103], nameB:[48,58], nameF:[27,30],
+  symX:[95,103], symB:[78,85], symF:[23,24],
+  priceB:[78,138], priceF:[23,41], priceW:[500,600], priceX:[null,30],
+  pctB:[78,169], pctX:[null,null],
+  chgX:30, dateX:30, dateB:200, nowX:28, nowBfromBottom:36,
+  chartX0:[351,0], chartX1:[596,595], chartY0:[6,207], chartY1:[66,417],
+  curY0:213, curY1:448,
+};
+
+// ---------- DOM ----------
+const $=id=>document.getElementById(id);
+const stage=$('stage'), card=$('card'), cv=$('chart'), ctx=cv.getContext('2d');
+const E={name:$('name'),sym:$('sym'),symA:$('symA'),symB:$('symB'),price:$('price'),pct:$('pct'),chg:$('chg'),chg2:$('chg2'),date:$('date'),now:$('now'),logo:$('logo'),expand:$('expand'),trade:$('trade'),clock:$('clock')};
+const icons=[...document.querySelectorAll('#trade .ic')];
+
+// price reels: "$ddd.dd"
+const FORMAT='$###.##';
+const slots=[];
+for (const c of FORMAT){
+  if (c==='#'){ const s=document.createElement('span'); s.className='slot'; const r=document.createElement('span'); r.className='reel';
+    const spans=[]; for(let k=0;k<4;k++){const d=document.createElement('span'); r.appendChild(d); spans.push(d);} s.appendChild(r); E.price.appendChild(s);
+    slots.push({el:s,reel:r,spans,p:0,v:0,target:0});
+  } else { const s=document.createElement('span'); s.className='ch'; s.textContent=c; E.price.appendChild(s); }
+}
+function digitsOf(v){ const s=v.toFixed(2).padStart(6,'0'); return s.replace('.','').split('').map(Number); }
+function resetDigits(v){ digitsOf(v).forEach((d,i)=>{slots[i].p=d;slots[i].v=0;slots[i].target=d;slots[i].dim=0;}); }
+function stepDigits(v,dt){
+  const ds=digitsOf(v);
+  slots.forEach((s,i)=>{
+    if (ds[i]!==s.target) s.dim=1; s.target=ds[i]; s.dim=Math.max(0,(s.dim||0)-dt/0.22);
+    let d=((s.target - s.p)%10+15)%10-5;   // shortest cyclic distance
+    const w=70;
+    s.v += (w*w*d - 2*w*s.v)*dt; s.p += s.v*dt;
+  });
+}
+let baseFrac=0.863, digitEm=0.62;
+function measure(){
+  const probe=document.createElement('div'); probe.style.cssText='position:absolute;visibility:hidden;font-size:100px;line-height:1;white-space:nowrap;font-family:'+getComputedStyle(document.body).fontFamily;
+  probe.innerHTML='H<span style="display:inline-block;width:1px;height:0"></span>';
+  document.body.appendChild(probe); baseFrac=probe.lastChild.offsetTop/100;
+  probe.innerHTML='<span style="font-feature-settings:\'tnum\' 1;font-weight:600">0</span>'; digitEm=probe.firstChild.getBoundingClientRect().width/100;
+  probe.remove();
+  slots.forEach(s=>s.el.style.width=digitEm+'em');
+}
+function renderDigits(){
+  slots.forEach(s=>{
+    const fl=Math.floor(s.p), fr=s.p-fl;
+    for(let k=0;k<4;k++){ const n=fl-1+k; const sp=s.spans[k]; sp.textContent=((n%10)+10)%10; sp.style.top=(0.1+(k-1-fr))+'em'; }
+    const sp=Math.abs(s.v);
+    s.reel.style.filter = sp>1.5 ? `blur(${Math.min(sp*0.02,1.6).toFixed(2)}px)` : 'none';
+    s.reel.style.opacity = (1-0.55*Math.max(s.dim||0,Math.min(sp*0.05,1))).toFixed(3);
+    const sc=1-clamp((sp-22)*0.015,0,0.4); s.reel.style.transform = sc<0.999?`scale(${sc.toFixed(3)})`:'none';
+  });
+}
+
+// ---------- sizing ----------
+let S=1, DPR=1;
+function resize(){
+  const vw=innerWidth, vh=innerHeight;
+  S = COMPARE ? (parseFloat(Q.get('scale'))||1) : Math.min((vw-28)/CW, (vh-150)/(CH_E+20), 0.78);
+  DPR=Math.min(devicePixelRatio||1,3);
+  const cy = COMPARE ? vh/2 : (vh-70)/2;
+  stage.style.top=cy+'px'; stage.style.transform=`scale(${S})`;
+  cv.width=Math.round(610*S*DPR); cv.height=Math.round(530*S*DPR);
+  cv.style.width='610px'; cv.style.height='530px';
+}
+
+function place(el,x,baseline,fs,scale=1){ // left x, baseline y in card coords; fs = rendered font-size, base font-size from css
+  el.style.transform=`translate(${x}px,${baseline - baseFrac*fs}px) scale(${scale})`;
+}
+const W=el=>el.offsetWidth;
+
+// ---------- chart ----------
+function drawChart(P, cw, ch, u, extras, curA, dS){
+  const k=S*DPR; ctx.setTransform(k,0,0,k,0,0); ctx.clearRect(0,0,610,530);
+  const sx=cw/CW;
+  const x0=lerp(L.chartX0[0],L.chartX0[1],P)*sx, x1=lerp(L.chartX1[0],L.chartX1[1],P)*sx;
+  const y0=lerp(L.chartY0[0],L.chartY0[1],P), y1=lerp(L.chartY1[0],L.chartY1[1],P);
+  const X=uu=>x0+uu*(x1-x0), Y=vv=>y0+vv*(y1-y0);
+  const cx=X(u), cyv=Y(vAt(u));
+  const path=()=>{ctx.beginPath(); PTS.forEach(([uu,vv],i)=>i?ctx.lineTo(X(uu),Y(vv)):ctx.moveTo(X(uu),Y(vv)));};
+  const fillPath=()=>{path(); ctx.lineTo(X(1),ch); ctx.lineTo(X(0),ch); ctx.closePath();};
+  // baseline (prev close)
+  if (extras>0){ ctx.save(); ctx.globalAlpha=extras; ctx.setLineDash([5,5]); ctx.strokeStyle='rgba(255,255,255,.2)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(0,Y(V_BASE)); ctx.lineTo(cw,Y(V_BASE)); ctx.stroke(); ctx.restore(); }
+  const g=ctx.createLinearGradient(0,y0,0,ch); g.addColorStop(0,'rgba(34,196,149,.30)'); g.addColorStop(.55,'rgba(34,196,149,.10)'); g.addColorStop(1,'rgba(34,196,149,0)');
+  const gg=ctx.createLinearGradient(0,y0,0,ch); gg.addColorStop(0,'rgba(120,140,135,.10)'); gg.addColorStop(1,'rgba(120,140,135,0)');
+  ctx.lineJoin='round'; ctx.lineCap='round'; ctx.lineWidth=3;
+  // left (active) part
+  ctx.save(); ctx.beginPath(); ctx.rect(-5,-5,cx+5,ch+10); ctx.clip();
+  fillPath(); ctx.fillStyle=g; ctx.fill(); path(); ctx.strokeStyle='#1fc690'; ctx.stroke(); ctx.restore();
+  // right (inactive) part
+  if (u<0.999){ ctx.save(); ctx.beginPath(); ctx.rect(cx,-5,cw-cx+10,ch+10); ctx.clip();
+    fillPath(); ctx.fillStyle=gg; ctx.fill(); path(); ctx.strokeStyle='#5d5f5e'; ctx.stroke(); ctx.restore(); }
+  // left fade (compact row fades chart into the text)
+  const fadeW = 45*(1-P) + 110*Math.sin(Math.PI*clamp(P));
+  if (fadeW>1){ ctx.save(); ctx.globalCompositeOperation='destination-out';
+    const f=ctx.createLinearGradient(x0,0,x0+fadeW,0); f.addColorStop(0,'rgba(0,0,0,1)'); f.addColorStop(1,'rgba(0,0,0,0)');
+    ctx.fillStyle=f; ctx.fillRect(-5,-5,x0+fadeW+5,ch+10); ctx.restore(); }
+  // cursor line
+  if (curA>0){ ctx.save(); ctx.globalAlpha=curA; ctx.strokeStyle='rgba(255,255,255,.32)'; ctx.lineWidth=1.5;
+    ctx.beginPath(); ctx.moveTo(cx,lerp(y0,L.curY0,P)); ctx.lineTo(cx,lerp(y1+12,L.curY1,P)); ctx.stroke(); ctx.restore(); }
+  if (dS>0){ const r=6.5*dS; ctx.beginPath(); ctx.arc(cx,cyv,r+2.5*dS,0,Math.PI*2); ctx.fillStyle='#0b0b0b'; ctx.fill();
+    ctx.beginPath(); ctx.arc(cx,cyv,r,0,Math.PI*2); ctx.fillStyle='#22c995'; ctx.fill(); }
+}
+
+// ---------- frame ----------
+const fmtMoney=v=>'$'+Math.abs(v).toFixed(2);
+let lastChg='', lastPct='', lastDate='';
+function render(t){
+  const P=morph(t), Pc0=clamp(t<T_COL?P:1-spring(t-T_COL-0.04,.75,12)), Py=clamp(P), PpX=Math.pow(Pc0,2.2), PpS=Math.pow(Pc0,1.6), PcX=Math.pow(Pc0,2.6);
+  const cw=CW*(1-squash(t)), ch=lerp(CH_C,CH_E,P);
+  card.style.width=cw+'px'; card.style.height=ch+'px';
+  card.style.transform=`translate(${-cw/2}px,${-ch/2}px)`; card.style.borderRadius=lerp(24,28,clamp(P))+'px';
+  const sx=cw/CW;
+  const u=cursorU(t), val=priceAt(u), diff=val-PREV, up=diff>=0;
+  const ex=extrasA(t);
+  // logo
+  const d=lerp(L.logoD[0],L.logoD[1],P);
+  E.logo.style.transform=`translate(${lerp(L.logoCx[0],L.logoCx[1],P)*sx-50}px,${lerp(L.logoCy[0],L.logoCy[1],P)-50}px) scale(${d/100})`;
+  // name
+  let fs=lerp(L.nameF[0],L.nameF[1],P); place(E.name,lerp(L.nameX[0],L.nameX[1],P)*sx,lerp(L.nameB[0],L.nameB[1],P),fs,fs/30);
+  // symbol row
+  fs=lerp(L.symF[0],L.symF[1],P); const symScale=fs/24; const symX=lerp(L.symX[0],L.symX[1],P)*sx, symB=lerp(L.symB[0],L.symB[1],P);
+  place(E.sym,symX,symB,fs,symScale);
+  E.symB.style.opacity=ex; E.symB.style.filter=ex<1?`blur(${(1-ex)*5}px)`:'none';
+  const symAW=W(E.symA)*symScale;
+  // change texts
+  const pctTxt=(up?'+':'−')+Math.abs(diff/PREV*100).toFixed(2)+'%';
+  const chgTxt=(up?'↑ ':'↓ ')+fmtMoney(diff)+' (';
+  if (pctTxt!==lastPct){E.pct.textContent=pctTxt;lastPct=pctTxt;}
+  if (chgTxt!==lastChg){E.chg.textContent=chgTxt;lastChg=chgTxt;}
+  const col=up?'var(--green)':'var(--red)';
+  E.pct.style.color=E.chg.style.color=E.chg2.style.color=col;
+  // price
+  const pfs=lerp(L.priceF[0],L.priceF[1],PpS), pscale=pfs/41;
+  E.price.style.fontWeight=Math.round(lerp(L.priceW[0],L.priceW[1],PpS));
+  const priceW=W(E.price)*pscale;
+  const priceXc=L.symX[0]*sx+W(E.symA)*(L.symF[0]/24)+8;
+  const priceX=lerp(priceXc, L.priceX[1]*sx, PpX);
+  place(E.price,priceX,lerp(L.priceB[0],L.priceB[1],Math.pow(Py,0.8)),pfs,pscale);
+  // pct: compact after price, expanded inside change line
+  const priceWc=W(E.price)*(L.priceF[0]/41);
+  const pctXc=priceXc+priceWc+8, pctXe=L.chgX*sx+W(E.chg);
+  place(E.pct,lerp(pctXc,pctXe,PcX),lerp(L.pctB[0],L.pctB[1],Math.pow(Py,0.7)),23,1);
+  place(E.chg,L.chgX*sx,L.pctB[1],23,1); E.chg.style.opacity=ex; E.chg.style.filter=ex<1?`blur(${(1-ex)*5}px)`:'none';
+  place(E.chg2,pctXe+W(E.pct),L.pctB[1],23,1); E.chg2.style.opacity=ex; E.chg2.style.filter=E.chg.style.filter;
+  // date
+  const dt=`Oct 28, 2026 at ${timeAt(u)} · 1D`; if (dt!==lastDate){E.date.textContent=dt;lastDate=dt;}
+  place(E.date,L.dateX*sx,L.dateB-(1-P)*0,22,1); E.date.style.opacity=ex; E.date.style.filter=E.chg.style.filter;
+  // bottom row
+  place(E.now,L.nowX*sx,ch-L.nowBfromBottom,22,1); E.now.style.opacity=ex; E.now.style.filter=E.chg.style.filter;
+  E.trade.style.transform=`translate(${cw-25-W(E.trade)}px,${ch-66.5}px)`; E.trade.style.opacity=ex; E.trade.style.filter=E.chg.style.filter;
+  icons.forEach((ic,i)=>ic.style.transform=`scale(${iconS(t,i)})`);
+  E.expand.style.transform=`translate(${cw-59}px,${34}px)`; E.expand.style.opacity=ex;
+  drawChart(P,cw,ch,u,ex,cursorLineA(t),dotS(t));
+  renderDigits();
+  E.clock.textContent=t.toFixed(2)+'s';
+  return val;
+}
+
+// ---------- clock: single virtual timeline ----------
+let vt = FREEZE!=null ? FREEZE : 0, simT=0, last=null;
+function sim(t){
+  if (t < simT){ resetDigits(VHI); simT=0; }
+  const h=1/240;
+  while (simT + h <= t){ simT += h; stepDigits(priceAt(cursorU(simT)), h); }
+}
+function frame(now){
+  if (last==null) last=now;
+  const dt=Math.min((now-last)/1000,0.1); last=now;
+  if (FREEZE==null) vt += dt*speed;
+  const t=((vt%LOOP)+LOOP)%LOOP;
+  sim(t); render(t);
+  requestAnimationFrame(frame);
+}
+// speed buttons
+const btns=[...document.querySelectorAll('#speed button')];
+function setSpeed(s){ speed=s; btns.forEach(b=>b.classList.toggle('on',parseFloat(b.dataset.s)===s)); }
+btns.forEach(b=>b.addEventListener('click',()=>setSpeed(parseFloat(b.dataset.s))));
+setSpeed(speed);
+
+addEventListener('resize',resize);
+resetDigits(VHI);
+(document.fonts&&document.fonts.ready?document.fonts.ready:Promise.resolve()).then(()=>{ measure(); resize(); requestAnimationFrame(frame); });
+})();
+</script>
+</body>
+</html>
